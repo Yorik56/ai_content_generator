@@ -15,20 +15,20 @@ Module Drupal custom pour générer du contenu de démo réaliste avec IA.
 
 ```mermaid
 flowchart TD
-  A[Drush: ai-content-generator:bulk] --> B[State runtime\ncount, bundle, fields, images]
-  B --> C[Plugin Generated Content\nNodeBundle.generate()]
-  C --> D[Creation Node\nbundle cible]
-  C --> E[Image optionnelle\nstyle image -> dimensions -> Picsum]
-  C --> F[Tags optionnels\nchamp tags cible]
-  D --> G[hook_node_presave\nai_content_generator.module]
-  G --> H[ContentGenerator service]
-  H --> I[resolveWritableTextField]
-  H --> J[resolveTextFormat]
-  H --> K[buildPrompt\n(tags autorises + styles editor)]
-  K --> L[AI provider chat]
-  L --> M[sanitizeGeneratedHtml]
-  H --> N[setGeneratedText\nfield texte cible]
-  N --> O[Node save]
+  A["Drush: ai-content-generator:bulk"] --> B["State runtime: count, bundle, fields, images"]
+  B --> C["Plugin Generated Content: NodeBundle.generate"]
+  C --> D["Creation du node cible"]
+  C --> E["Image optionnelle: style image puis dimensions puis Picsum"]
+  C --> F["Tags optionnels: champ tags cible"]
+  D --> G["hook_node_presave dans ai_content_generator.module"]
+  G --> H["Service ContentGenerator"]
+  H --> I["resolveWritableTextField"]
+  H --> J["resolveTextFormat"]
+  H --> K["buildPrompt avec tags autorises et capacites editor"]
+  K --> L["Appel provider AI (chat)"]
+  L --> M["sanitizeGeneratedHtml"]
+  H --> N["setGeneratedText sur le champ texte cible"]
+  N --> O["Sauvegarde du node"]
   E --> O
   F --> O
 ```
