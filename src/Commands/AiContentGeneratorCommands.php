@@ -24,17 +24,20 @@ final class AiContentGeneratorCommands extends DrushCommands {
   }
 
   /**
-   * Génère des articles via Generated Content + IA.
+   * Génère des contenus Node via Generated Content + IA.
    *
    * @param int $count
-   *   Nombre d'articles à créer.
+   *   Nombre de contenus à créer.
    * @param array $options
    *   Options de génération.
    *
    * @command ai-content-generator:bulk
    * @aliases aicg-bulk
-   * @option with-images Télécharger une image Picsum par article (activé par défaut).
+   * @option with-images Télécharger une image Picsum par contenu (activé par défaut).
+   * @option bundle Bundle node cible (défaut: config module).
+   * @option text-fields Champs texte cibles, séparés par virgules (ex: body,field_intro).
    * @option image-field Machine name du champ image (défaut: field_image).
+   * @option tags-field Machine name du champ tags (défaut: field_tags).
    * @option width Largeur de l'image (défaut: auto depuis le style d'affichage).
    * @option height Hauteur de l'image (défaut: auto depuis le style d'affichage).
    * @usage drush ai-content-generator:bulk 20
@@ -42,7 +45,10 @@ final class AiContentGeneratorCommands extends DrushCommands {
    */
   public function bulk(int $count = 10, array $options = [
     'with-images' => TRUE,
+    'bundle' => '',
+    'text-fields' => '',
     'image-field' => 'field_image',
+    'tags-field' => 'field_tags',
     'width' => 0,
     'height' => 0,
   ]): void {
@@ -52,19 +58,32 @@ final class AiContentGeneratorCommands extends DrushCommands {
     }
 
     $withImages = (bool) ($options['with-images'] ?? TRUE);
+    $bundle = trim((string) ($options['bundle'] ?? ''));
+    if ($bundle === '') {
+      $bundle = (string) (\Drupal::config('ai_content_generator.settings')->get('default_bundle') ?: 'article');
+    }
+    $textFieldsCsv = trim((string) ($options['text-fields'] ?? ''));
+    $textFields = [];
+    if ($textFieldsCsv !== '') {
+      $textFields = array_values(array_filter(array_map('trim', explode(',', $textFieldsCsv))));
+    }
     $imageField = (string) ($options['image-field'] ?? 'field_image');
+    $tagsField = (string) ($options['tags-field'] ?? 'field_tags');
     $width = max(0, (int) ($options['width'] ?? 0));
     $height = max(0, (int) ($options['height'] ?? 0));
 
     $this->state->set('ai_content_generator.generated_content.count', $count);
+    $this->state->set('ai_content_generator.generated_content.bundle', $bundle);
+    $this->state->set('ai_content_generator.generated_content.text_fields', $textFields);
     $this->state->set('ai_content_generator.generated_content.with_images', $withImages);
     $this->state->set('ai_content_generator.generated_content.image_field', $imageField);
+    $this->state->set('ai_content_generator.generated_content.tags_field', $tagsField);
     $this->state->set('ai_content_generator.generated_content.image_width', $width);
     $this->state->set('ai_content_generator.generated_content.image_height', $height);
 
     try {
       /** @var \Drupal\generated_content\Plugin\GeneratedContent\GeneratedContentPluginInterface $plugin */
-      $plugin = $this->generatedContentPluginManager->createInstance('ai_content_generator_node_article');
+      $plugin = $this->generatedContentPluginManager->createInstance('ai_content_generator_node_bundle');
       $entities = $plugin->generate();
 
       $repository = GeneratedContentRepository::getInstance();
@@ -72,8 +91,9 @@ final class AiContentGeneratorCommands extends DrushCommands {
       $repository->clearCaches();
 
       $this->logger()->success(sprintf(
-        '%d article(s) généré(s) via Generated Content%s.',
+        '%d contenu(s) node (%s) généré(s) via Generated Content%s.',
         count($entities),
+        $bundle,
         $withImages ? ' avec images' : ''
       ));
     }
@@ -86,8 +106,11 @@ final class AiContentGeneratorCommands extends DrushCommands {
     }
     finally {
       $this->state->delete('ai_content_generator.generated_content.count');
+      $this->state->delete('ai_content_generator.generated_content.bundle');
+      $this->state->delete('ai_content_generator.generated_content.text_fields');
       $this->state->delete('ai_content_generator.generated_content.with_images');
       $this->state->delete('ai_content_generator.generated_content.image_field');
+      $this->state->delete('ai_content_generator.generated_content.tags_field');
       $this->state->delete('ai_content_generator.generated_content.image_width');
       $this->state->delete('ai_content_generator.generated_content.image_height');
     }

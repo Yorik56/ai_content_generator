@@ -10,6 +10,7 @@ use Drupal\ai\OperationType\Chat\ChatMessage;
 use Drupal\editor\Entity\Editor;
 use Drupal\filter\Entity\FilterFormat;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\node\NodeInterface;
 
 /**
  * Génère du contenu HTML via le provider IA configuré.
@@ -22,7 +23,7 @@ final class ContentGenerator {
   ) {}
 
   /**
-   * Génère un corps d'article à partir d'un titre.
+   * Génère un corps de contenu à partir d'un titre.
    */
   public function generateFromTitle(string $title, ?string $textFormat = NULL): string {
     $title = trim($title);
@@ -82,13 +83,73 @@ final class ContentGenerator {
   }
 
   /**
+   * Resolve the first writable text field on a node.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node being generated.
+   * @param string[] $preferredFields
+   *   Preferred field machine names, in order.
+   *
+   * @return string|null
+   *   Writable empty text field machine name or NULL.
+   */
+  public function resolveWritableTextField(NodeInterface $node, array $preferredFields = []): ?string {
+    $supported_types = ['text', 'text_long', 'text_with_summary', 'string_long', 'string'];
+
+    $candidates = [];
+    if (!empty($preferredFields)) {
+      $candidates = $preferredFields;
+    }
+    else {
+      foreach ($node->getFieldDefinitions() as $field_name => $definition) {
+        if (in_array($definition->getType(), $supported_types, TRUE)) {
+          $candidates[] = $field_name;
+        }
+      }
+    }
+
+    foreach ($candidates as $field_name) {
+      if (!$node->hasField($field_name) || !$node->get($field_name)->isEmpty()) {
+        continue;
+      }
+
+      $definition = $node->getFieldDefinition($field_name);
+      if (in_array($definition->getType(), $supported_types, TRUE)) {
+        return $field_name;
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Apply generated text into a node field.
+   */
+  public function setGeneratedText(NodeInterface $node, string $fieldName, string $content, string $textFormat): void {
+    $definition = $node->getFieldDefinition($fieldName);
+    $field_type = $definition->getType();
+
+    if (in_array($field_type, ['text', 'text_long', 'text_with_summary'], TRUE)) {
+      $node->set($fieldName, [
+        'value' => $content,
+        'format' => $textFormat,
+      ]);
+      return;
+    }
+
+    // Fallback for plain string fields: keep text-only content.
+    $plain_text = trim(strip_tags($content));
+    $node->set($fieldName, $plain_text);
+  }
+
+  /**
    * Construit le prompt de génération.
    */
   private function buildPrompt(string $title, string $textFormat): string {
     $formatConstraints = $this->buildTextFormatConstraints($textFormat);
 
     return <<<PROMPT
-Rédige un article professionnel en HTML.
+Rédige un contenu professionnel en HTML.
 Contraintes :
 - Utilise les balises <h2> et <h3>.
 - Utilise des paragraphes <p>.

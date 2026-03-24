@@ -8,16 +8,37 @@ use Drupal\node\NodeInterface;
  * Implements hook_node_presave().
  */
 function ai_content_generator_node_presave(NodeInterface $node): void {
-  if (!$node->isNew() || $node->bundle() !== 'article') {
+  if (!$node->isNew()) {
     return;
   }
 
-  if (!$node->hasField('body') || !$node->get('body')->isEmpty()) {
+  $settings = \Drupal::config('ai_content_generator.settings');
+  $state = \Drupal::state();
+  $enabled_bundles = array_values(array_filter((array) $settings->get('enabled_bundles')));
+  $runtime_bundle = (string) $state->get('ai_content_generator.generated_content.bundle', '');
+  if (
+    $runtime_bundle !== ''
+    && $node->bundle() !== $runtime_bundle
+    && !empty($enabled_bundles)
+    && !in_array($node->bundle(), $enabled_bundles, TRUE)
+  ) {
+    return;
+  }
+  if ($runtime_bundle === '' && !empty($enabled_bundles) && !in_array($node->bundle(), $enabled_bundles, TRUE)) {
     return;
   }
 
   /** @var \Drupal\ai_content_generator\Service\ContentGenerator $generator */
   $generator = \Drupal::service('ai_content_generator.generator');
+
+  $runtime_text_fields = array_values(array_filter((array) $state->get('ai_content_generator.generated_content.text_fields', [])));
+  $preferred_fields = !empty($runtime_text_fields)
+    ? $runtime_text_fields
+    : array_values(array_filter((array) $settings->get('text_fields')));
+  $field_name = $generator->resolveWritableTextField($node, $preferred_fields);
+  if ($field_name === NULL) {
+    return;
+  }
 
   $text_format = $generator->resolveTextFormat();
   $generated_content = $generator->generateFromTitle((string) $node->label(), $text_format);
@@ -25,8 +46,5 @@ function ai_content_generator_node_presave(NodeInterface $node): void {
     return;
   }
 
-  $node->set('body', [
-    'value' => $generated_content,
-    'format' => $text_format,
-  ]);
+  $generator->setGeneratedText($node, $field_name, $generated_content, $text_format);
 }

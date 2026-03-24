@@ -1,78 +1,98 @@
 # AI Content Generator
 
-Module Drupal custom pour generer du contenu de demo "realiste" avec IA, en masse.
+Module Drupal custom pour générer du contenu de démo réaliste avec IA.
 
 ## Ce que fait le module
 
-- Cree des articles automatiquement en lot.
-- Remplit le champ `body` avec du contenu genere par IA (HTML propre pour Drupal).
-- Ajoute des tags automatiquement sur les articles.
-- Peut telecharger une image aleatoire et la lier a l'article.
-- S'appuie sur le module **Generated Content** pour la structure de generation.
+- Génère des contenus Node en lot via Drush.
+- Remplit un champ texte automatiquement avec du HTML généré par IA.
+- Peut ajouter des tags automatiquement.
+- Peut télécharger une image aléatoire et la lier au contenu.
+- Récupère les contraintes de format de texte (balises autorisées, capacités éditeur) pour guider le prompt.
+- Récupère les dimensions d’image depuis le style d’affichage si largeur/hauteur ne sont pas forcées.
 
-En pratique:
+## Installation rapide
 
-- **Generated Content** cree les noeuds.
-- **AI Content Generator** orchestre le texte IA, les tags et les images.
+1. Installer les dépendances du projet Drupal.
+2. Activer les modules requis (`ai`, `ai_provider_mistral`, `generated_content`, etc.).
+3. Activer ce module :
 
-## Pour qui
+```bash
+ddev drush en ai_content_generator -y
+ddev drush cr
+```
 
-Ce module est utile pour:
+4. Fournir la clé API Mistral par variable d’environnement :
 
-- monter rapidement un site de test avec du contenu credible,
-- faire des demos,
-- tester des vues, listings, filtres, pages article, etc.
+```bash
+export MISTRAL_API_KEY="..."
+```
 
-## Prerequis
+Le module ne versionne pas de secret. Les configs liées à AI sont fournies en `config/optional`.
 
-- Module AI configure avec un provider fonctionnel (ex: Mistral).
-- Module Generated Content actif.
-- Type de contenu `article` present.
-- Cle API Mistral fournie via variable d'environnement `MISTRAL_API_KEY`.
+## Configuration par défaut du module
 
-## Commande principale
+Config installée dans `ai_content_generator.settings` :
 
-Generer 20 articles:
+- `enabled_bundles`: bundles autorisés pour génération automatique à la création.
+- `text_fields`: champs texte candidats (ordre de priorité).
+- `default_bundle`: bundle par défaut pour la commande bulk.
+- `image_field`: champ image par défaut.
+- `tags_field`: champ tags par défaut.
+
+## Utilisation
+
+### Cas simple
+
+Générer 20 contenus sur le bundle par défaut :
 
 ```bash
 ddev drush ai-content-generator:bulk 20
 ```
 
-Generer 20 articles avec images:
+### Changer le bundle
 
 ```bash
-ddev drush ai-content-generator:bulk 20 --with-images
+ddev drush ai-content-generator:bulk 20 --bundle=page
 ```
 
-Personnaliser le champ image et la taille:
+### Forcer les champs texte / tags
 
 ```bash
-ddev drush ai-content-generator:bulk 20 --with-images --image-field=field_image --width=1200 --height=800
+ddev drush ai-content-generator:bulk 20 --bundle=article --text-fields=body,field_intro --tags-field=field_tags
 ```
 
-Sans `--width/--height`, le module tente de recuperer les dimensions depuis le
-style d'image configure sur l'affichage du contenu.
+### Générer avec image
 
-## Ce qui est genere
+```bash
+ddev drush ai-content-generator:bulk 20 --with-images --image-field=field_image
+```
 
-Pour chaque article:
+### Forcer les dimensions d’image
 
-- un titre,
-- un body en HTML (genere par IA),
-- des tags,
-- une image (si activee et champ disponible).
+```bash
+ddev drush ai-content-generator:bulk 20 --with-images --width=1200 --height=800
+```
 
-## Notes importantes
+Si `--width` et `--height` ne sont pas fournis, le module essaie d’utiliser le style d’image de l’affichage (`default`, puis `teaser`).
 
-- Ce module est pense pour du **test / demo**.
-- La qualite du texte depend du provider IA et du modele configure.
-- Les images sont recuperees depuis un service externe (Picsum).
-- Les configs AI exportees sont dans `config/optional` (aucun secret versionne).
+## Vérifier que tout fonctionne
 
-## Resume
+Après une génération, vérifier les logs :
 
-Ce module te donne un pipeline simple:
+```bash
+ddev drush ws --count=50
+```
 
-1. generation en lot,
-2. texte IA exploitable,
-3. enrichissement automatique (tags + image).
+Entrées utiles :
+
+- contraintes format (`tags_mode`, `tags`, `styles_css`, `editor_features`),
+- extrait de prompt envoyé,
+- style d’image détecté et dimensions retenues.
+
+## Limites connues
+
+- Conçu pour test/démo, pas pour un workflow éditorial final.
+- Qualité dépend du provider/modèle IA.
+- Les images viennent d’un service externe (Picsum).
+- Le provider Mistral peut afficher des warnings `Deprecated` non bloquants selon la version.

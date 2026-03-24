@@ -1,0 +1,23 @@
+ai_content_generator.settings:
+  type: config_object
+  label: 'AI Content Generator settings'
+  mapping:
+    enabled_bundles:
+      type: sequence
+      label: 'Enabled node bundles'
+      sequence:
+        type: string
+    text_fields:
+      type: sequence
+      label: 'Preferred text fields'
+      sequence:
+        type: string
+    default_bundle:
+      type: string
+      label: 'Default bundle for bulk generation'
+    image_field:
+      type: string
+      label: 'Default image field machine name'
+    tags_field:
+      type: string
+      label: 'Default tags field machine name'

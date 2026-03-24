@@ -14,29 +14,41 @@ use Drupal\node\NodeInterface;
 use Drupal\taxonomy\TermInterface;
 
 /**
- * Générateur d'articles pour le pipeline Generated Content + IA.
+ * Générateur de contenus Node pour le pipeline Generated Content + IA.
  */
 #[GeneratedContent(
-  id: 'ai_content_generator_node_article',
+  id: 'ai_content_generator_node_bundle',
   entity_type: 'node',
   bundle: 'article',
   weight: 50
 )]
-final class NodeArticle extends GeneratedContentPluginBase {
+final class NodeBundle extends GeneratedContentPluginBase {
 
   /**
    * {@inheritdoc}
    */
   public function generate(): array {
     $state = \Drupal::state();
+    $config = \Drupal::config('ai_content_generator.settings');
     $count = max(1, (int) $state->get('ai_content_generator.generated_content.count', 10));
+    $bundle = (string) $state->get('ai_content_generator.generated_content.bundle', (string) $config->get('default_bundle'));
+    if ($bundle === '') {
+      $bundle = 'article';
+    }
     $withImages = (bool) $state->get('ai_content_generator.generated_content.with_images', TRUE);
-    $imageField = (string) $state->get('ai_content_generator.generated_content.image_field', 'field_image');
+    $imageField = (string) $state->get('ai_content_generator.generated_content.image_field', (string) $config->get('image_field'));
+    if ($imageField === '') {
+      $imageField = 'field_image';
+    }
+    $tagsField = (string) $state->get('ai_content_generator.generated_content.tags_field', (string) $config->get('tags_field'));
+    if ($tagsField === '') {
+      $tagsField = 'field_tags';
+    }
     $width = (int) $state->get('ai_content_generator.generated_content.image_width', 0);
     $height = (int) $state->get('ai_content_generator.generated_content.image_height', 0);
 
     if ($width < 1 || $height < 1) {
-      $dimensions = $this->resolveImageDimensionsFromDisplay($imageField);
+      $dimensions = $this->resolveImageDimensionsFromDisplay($bundle, $imageField);
       $width = $dimensions['width'];
       $height = $dimensions['height'];
     }
@@ -55,11 +67,11 @@ final class NodeArticle extends GeneratedContentPluginBase {
     $nodeStorage = $this->entityTypeManager->getStorage('node');
 
     for ($i = 1; $i <= $count; $i++) {
-      $title = sprintf('Article IA %s #%d', date('Y-m-d H:i:s'), $i);
+      $title = sprintf('Contenu IA %s #%d', date('Y-m-d H:i:s'), $i);
 
       /** @var \Drupal\node\NodeInterface $node */
       $node = $nodeStorage->create([
-        'type' => 'article',
+        'type' => $bundle,
         'title' => $title,
         'status' => 1,
       ]);
@@ -68,9 +80,9 @@ final class NodeArticle extends GeneratedContentPluginBase {
         $this->attachImageIfPossible($node, $imageField, $width, $height, $title, $i);
       }
 
-      $this->attachTagsIfPossible($node, $title, $i);
+      $this->attachTagsIfPossible($node, $tagsField, $title, $i);
 
-      // Le hook ai_content_generator_node_presave() complète automatiquement body.
+      // Le hook ai_content_generator_node_presave() complète automatiquement le texte.
       $node->save();
       $nodes[] = $node;
     }
@@ -81,12 +93,12 @@ final class NodeArticle extends GeneratedContentPluginBase {
   /**
    * Attache des tags au contenu si le champ existe.
    */
-  private function attachTagsIfPossible(NodeInterface $node, string $title, int $index): void {
-    if (!$node->hasField('field_tags')) {
+  private function attachTagsIfPossible(NodeInterface $node, string $tagsField, string $title, int $index): void {
+    if ($tagsField === '' || !$node->hasField($tagsField)) {
       return;
     }
 
-    $definition = $node->getFieldDefinition('field_tags');
+    $definition = $node->getFieldDefinition($tagsField);
     $targetType = (string) ($definition->getFieldStorageDefinition()->getSetting('target_type') ?? '');
     if ($targetType !== 'taxonomy_term') {
       return;
@@ -122,7 +134,7 @@ final class NodeArticle extends GeneratedContentPluginBase {
     }
 
     if (!empty($termIds)) {
-      $node->set('field_tags', $termIds);
+      $node->set($tagsField, $termIds);
     }
   }
 
@@ -185,7 +197,7 @@ final class NodeArticle extends GeneratedContentPluginBase {
       return;
     }
 
-    // Cas standard Drupal "Article": field_image => référence media.
+    // Cas standard Drupal: champ image en référence media.
     if ($targetType === 'media' && $this->entityTypeManager->hasDefinition('media')) {
       $mediaStorage = $this->entityTypeManager->getStorage('media');
       $media = $mediaStorage->create([
@@ -210,12 +222,12 @@ final class NodeArticle extends GeneratedContentPluginBase {
   }
 
   /**
-   * Résout les dimensions de génération depuis le style d'image d'affichage.
+   * Résout les dimensions depuis le style d'image d'affichage.
    *
    * @return array{width:int,height:int}
    *   Dimensions retenues.
    */
-  private function resolveImageDimensionsFromDisplay(string $imageField): array {
+  private function resolveImageDimensionsFromDisplay(string $bundle, string $imageField): array {
     $fallback = ['width' => 1200, 'height' => 800];
 
     /** @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface $displayRepository */
@@ -223,7 +235,7 @@ final class NodeArticle extends GeneratedContentPluginBase {
     $viewModes = ['default', 'teaser'];
 
     foreach ($viewModes as $viewMode) {
-      $display = $displayRepository->getViewDisplay('node', 'article', $viewMode);
+      $display = $displayRepository->getViewDisplay('node', $bundle, $viewMode);
       $component = $display->getComponent($imageField);
       $styleId = (string) ($component['settings']['image_style'] ?? '');
       if ($styleId === '') {
@@ -238,9 +250,10 @@ final class NodeArticle extends GeneratedContentPluginBase {
       $resolved = $this->extractDimensionsFromStyle($style, $fallback['width'], $fallback['height']);
       if ($resolved['width'] > 0 && $resolved['height'] > 0) {
         \Drupal::logger('ai_content_generator')->notice(
-          'Image style detecte: view_mode="@view_mode", field="@field", style="@style", dimensions=@widthx@height.',
+          'Image style detecte: view_mode="@view_mode", bundle="@bundle", field="@field", style="@style", dimensions=@widthx@height.',
           [
             '@view_mode' => $viewMode,
+            '@bundle' => $bundle,
             '@field' => $imageField,
             '@style' => $styleId,
             '@width' => (string) $resolved['width'],
@@ -252,9 +265,10 @@ final class NodeArticle extends GeneratedContentPluginBase {
     }
 
     \Drupal::logger('ai_content_generator')->notice(
-      'Aucun style image exploitable trouve pour field="@field". Fallback dimensions=@widthx@height.',
+      'Aucun style image exploitable trouve pour field="@field" bundle="@bundle". Fallback dimensions=@widthx@height.',
       [
         '@field' => $imageField,
+        '@bundle' => $bundle,
         '@width' => (string) $fallback['width'],
         '@height' => (string) $fallback['height'],
       ]

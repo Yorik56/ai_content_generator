@@ -1,0 +1,7 @@
+enabled_bundles:
+  - article
+text_fields:
+  - body
+default_bundle: article
+image_field: field_image
+tags_field: field_tags
