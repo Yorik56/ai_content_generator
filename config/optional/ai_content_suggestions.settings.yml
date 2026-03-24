@@ -1,0 +1,6 @@
+langcode: fr
+plugins:
+  summarise: mistral__mistral-large-latest
+  title_suggest: mistral__mistral-large-latest
+taxonomy_suggest_open: suggest_tags__suggest_tags_default
+taxonomy_suggest_from_voc: suggest_vocabulary__suggest_vocabulary_default

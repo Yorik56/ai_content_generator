@@ -28,6 +28,7 @@ Ce module est utile pour:
 - Module AI configure avec un provider fonctionnel (ex: Mistral).
 - Module Generated Content actif.
 - Type de contenu `article` present.
+- Cle API Mistral fournie via variable d'environnement `MISTRAL_API_KEY`.
 
 ## Commande principale
 
@@ -49,6 +50,9 @@ Personnaliser le champ image et la taille:
 ddev drush ai-content-generator:bulk 20 --with-images --image-field=field_image --width=1200 --height=800
 ```
 
+Sans `--width/--height`, le module tente de recuperer les dimensions depuis le
+style d'image configure sur l'affichage du contenu.
+
 ## Ce qui est genere
 
 Pour chaque article:
@@ -63,6 +67,7 @@ Pour chaque article:
 - Ce module est pense pour du **test / demo**.
 - La qualite du texte depend du provider IA et du modele configure.
 - Les images sont recuperees depuis un service externe (Picsum).
+- Les configs AI exportees sont dans `config/optional` (aucun secret versionne).
 
 ## Resume
 
