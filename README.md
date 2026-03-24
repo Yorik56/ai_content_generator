@@ -11,6 +11,28 @@ Module Drupal custom pour générer du contenu de démo réaliste avec IA.
 - Récupère les contraintes de format de texte (balises autorisées, capacités éditeur) pour guider le prompt.
 - Récupère les dimensions d’image depuis le style d’affichage si largeur/hauteur ne sont pas forcées.
 
+## Architecture (vue rapide)
+
+```mermaid
+flowchart TD
+  A[Drush: ai-content-generator:bulk] --> B[State runtime\ncount, bundle, fields, images]
+  B --> C[Plugin Generated Content\nNodeBundle.generate()]
+  C --> D[Creation Node\nbundle cible]
+  C --> E[Image optionnelle\nstyle image -> dimensions -> Picsum]
+  C --> F[Tags optionnels\nchamp tags cible]
+  D --> G[hook_node_presave\nai_content_generator.module]
+  G --> H[ContentGenerator service]
+  H --> I[resolveWritableTextField]
+  H --> J[resolveTextFormat]
+  H --> K[buildPrompt\n(tags autorises + styles editor)]
+  K --> L[AI provider chat]
+  L --> M[sanitizeGeneratedHtml]
+  H --> N[setGeneratedText\nfield texte cible]
+  N --> O[Node save]
+  E --> O
+  F --> O
+```
+
 ## Installation rapide
 
 1. Installer les dépendances du projet Drupal.
