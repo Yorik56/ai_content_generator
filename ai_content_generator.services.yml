@@ -1,0 +1,6 @@
+services:
+  ai_content_generator.generator:
+    class: Drupal\ai_content_generator\Service\ContentGenerator
+    arguments:
+      - '@ai.provider'
+      - '@logger.factory'

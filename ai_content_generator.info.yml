@@ -1,0 +1,17 @@
+name: AI Content Generator
+type: module
+description: Génération automatique de contenu avec IA
+core_version_requirement: ^10 || ^11
+package: Custom
+dependencies:
+  - drupal:node
+  - drupal:text
+  - drupal:field
+  - drupal:user
+  - drupal:filter
+  - drupal:editor
+  - drupal:file
+  - drupal:image
+  - drupal:media
+  - ai:ai
+  - generated_content:generated_content

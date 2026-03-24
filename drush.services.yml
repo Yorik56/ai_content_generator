@@ -1,0 +1,6 @@
+services:
+  ai_content_generator.commands:
+    class: Drupal\ai_content_generator\Commands\AiContentGeneratorCommands
+    arguments: [ '@state', '@plugin.manager.generated_content', '@logger.factory' ]
+    tags:
+      - { name: drush.command }

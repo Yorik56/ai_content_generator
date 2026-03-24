@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_node_presave().
+ */
+function ai_content_generator_node_presave(NodeInterface $node): void {
+  if (!$node->isNew() || $node->bundle() !== 'article') {
+    return;
+  }
+
+  if (!$node->hasField('body') || !$node->get('body')->isEmpty()) {
+    return;
+  }
+
+  /** @var \Drupal\ai_content_generator\Service\ContentGenerator $generator */
+  $generator = \Drupal::service('ai_content_generator.generator');
+
+  $text_format = $generator->resolveTextFormat();
+  $generated_content = $generator->generateFromTitle((string) $node->label(), $text_format);
+  if ($generated_content === '') {
+    return;
+  }
+
+  $node->set('body', [
+    'value' => $generated_content,
+    'format' => $text_format,
+  ]);
+}
